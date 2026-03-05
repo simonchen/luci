@@ -34,6 +34,13 @@
 
 	local has_dsl = fs.access("/etc/init.d/dsl_control")
 
+	local util = require "luci.util"
+	local crypto_str = "-"
+	if luci.http.formvalue("status") == nil then
+		local crypto_list = util.get_hw_crypto_engines() or {}
+		crypto_str = table.concat(crypto_list, ", ")
+	end
+
 	if luci.http.formvalue("status") == "1" then
 		local ntm = require "luci.model.network".init()
 		local wan = ntm:get_wannet()
@@ -65,6 +72,9 @@
 			leases6    = stat.dhcp6_leases(),
 			wifinets   = stat.wifi_networks()
 		}
+		
+		rv.hwmon = util.get_all_hwmon_info()
+		rv.hw_crypto = util.get_hw_crypto_engines()
 
 		if wan then
 			rv.wan = {
@@ -91,7 +101,7 @@
 				ifname    = wan6:ifname(),
 				link      = wan6:adminlink()
 			}
-		end
+		end	
 
 		if has_dsl then
 			local dsl_stat = luci.sys.exec("/etc/init.d/dsl_control lucistat")
@@ -115,7 +125,7 @@
 
 <%+header%>
 
-<script type="text/javascript" src="<%=resource%>/cbi.js"></script>
+<script type="text/javascript" src="<%=resource%>/cbi.js?v=git-25.284.14700-5872354"></script>
 <script type="text/javascript">//<![CDATA[
 	function progressbar(v, m)
 	{
@@ -182,8 +192,8 @@
 		});
 	}
 
-	XHR.poll(5, '<%=REQUEST_URI%>', { status: 1 },
-		function(x, info)
+	//XHR.poll(5, '<%=REQUEST_URI%>', { status: 1 },
+	var updateStatus = function(x, info)
 		{
 			if (!(npoll++ % 5))
 				updateHosts();
@@ -468,7 +478,7 @@
 			var ws = document.getElementById('wifi_status_table');
 			if (ws)
 			{
-				var wsbody = ws.rows[0].parentNode;
+				var wsbody = ws.tBodies[0];//ws.rows[0].parentNode;
 				while (ws.rows.length > 0)
 					wsbody.deleteRow(0);
 
@@ -653,6 +663,47 @@
 			if (e = document.getElementById('cpuusage'))
 				e.innerHTML = info.cpuusage;
 
+if (e = document.getElementById('hwtemp')) {
+    if (info.hwmon) {
+            var html = '';
+            // 定义驱动名称映射（硬编码中文）
+            var nameMap = {
+                "mt7915_phy0": "2.4G 无线",
+                "mt7915_phy1": "5G 无线"
+            };
+
+            for (var k in info.hwmon) {
+                var d = info.hwmon[k];
+                var displayName = nameMap[d.name] || d.name;
+                
+                // 1. 颜色逻辑：超过 75°C 或接近临界值变红
+                var warn = d.crit ? (d.crit - 5) : 75;
+                var color = (d.current >= warn) ? '#ff0000' : (d.current >= 65 ? '#ffa500' : '#2eaf7d');
+
+                // 2. 构造悬停提示文本 (Title)
+                var tooltip = String.format('最高限制: %.1f°C | 临界关机: %.1f°C', 
+                    d.max || 0, d.crit || 0);
+
+                // 3. 组合 HTML (添加 title 属性实现悬停显示)
+                html += String.format(
+                    '<span style="margin-right:15px; cursor:help" title="%s">' +
+                    '%s: <strong style="color:%s">%.1f°C</strong></span>',
+                    tooltip, displayName, color, d.current
+                );
+            }
+            e.innerHTML = html || '-';
+/*
+        var tempStr = '';
+        for (var key in info.hwmon) {
+            var hw = info.hwmon[key];
+            // 格式化输出：驱动名: 温度°C
+            tempStr += String.format('%s: <strong>%.1f °C</strong> ', hw.name, hw.current);
+        }
+        e.innerHTML = tempStr || '-';
+*/
+    }
+}
+
 			if (e = document.getElementById('loadavg'))
 				e.innerHTML = String.format(
 					'%.02f, %.02f, %.02f',
@@ -689,7 +740,18 @@
 				e.innerHTML = progressbar(info.conncount, info.connmax);
 
 		}
-	);
+	//);
+	        //XHR.poll(5, '<%=REQUEST_URI%>', { status: 1 }, updateStatus);
+		var ready_next = true;
+		window.setInterval(function() {
+			if (!ready_next) return;
+			ready_next = false;
+			XHR.get('<%=REQUEST_URI%>', { status: 1 }, function(x, info){
+		       		updateStatus(x, info);
+				window.setTimeout(function() { ready_next = true; }, 5000);
+			});
+		}, 500);
+		
 //]]></script>
 
 <h2 name="content"><%:Status%></h2>
@@ -701,6 +763,7 @@
 		<tr><td width="33%"><%:Hostname%></td><td><%=luci.sys.hostname() or "?"%></td></tr>
 		<tr><td width="33%"><%:Model%></td><td><%=pcdata(boardinfo.model or "?")%> <%=luci.sys.exec("cat /etc/bench.log") or " "%></td></tr>
 		<tr><td width="33%"><%:Architecture%></td><td><%=pcdata(boardinfo.system or "ARMv8 Processor")%> x <%=luci.sys.exec("cat /proc/cpuinfo | grep 'processor' | wc -l") or "1"%></td></tr>
+		<tr><td width="33%">硬件加密加速</td><td id="hwcrypto"><%:⚡%> <%=pcdata(crypto_str ~= "" and crypto_str or "-")%></td></tr>	
 		<tr><td width="33%"><%:Firmware Version%></td><td>
 			<%=pcdata(ver.distname)%> <%=pcdata(ver.distversion)%> /
 			<%=pcdata(ver.luciname)%> (<%=pcdata(ver.luciversion)%>)
@@ -710,6 +773,7 @@
 		<tr><td width="33%"><%:Uptime%></td><td id="uptime">-</td></tr>
 		<tr><td width="33%"><%:Load Average%></td><td id="loadavg">-</td></tr>
 		<tr><td width="33%"><%:CPU usage (%)%></td><td id="cpuusage">-</td></tr>
+		<tr><td width="33%"><%:温度%></td><td id="hwtemp">-</td></tr>
 	</table>
 </fieldset>
 

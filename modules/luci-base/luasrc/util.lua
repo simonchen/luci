@@ -20,6 +20,7 @@ local tostring, type, assert, error = tostring, type, assert, error
 local ipairs, pairs, next, loadstring = ipairs, pairs, next, loadstring
 local require, pcall, xpcall = require, pcall, xpcall
 local collectgarbage, get_memory_limit = collectgarbage, get_memory_limit
+local tonumber, next, pairs, io = tonumber, next, pairs, io
 
 module "luci.util"
 
@@ -740,4 +741,73 @@ end
 -- Resume execution of protected function call
 function performResume(err, co, ...)
 	return handleReturnValue(err, co, coroutine.resume(co, ...))
+end
+
+--- 自动枚举并获取所有硬件监控温度信息
+-- @return table 键名为 hwmon 索引，包含 name 及温度数据
+function get_all_hwmon_info()
+	local fs = require "nixio.fs"
+	local base = "/sys/class/hwmon/"
+	local results = {}
+
+	local entries = fs.dir(base)
+	if not entries then return nil end
+
+	for entry in entries do
+		local path = base .. entry .. "/"
+		local info = {}
+		
+		-- 获取驱动名称 (如 ath10k, iwlwifi, coretemp 等)
+		local name = fs.readfile(path .. "name")
+		if name then
+			info.name = name:gsub("\n", "")
+		end
+
+		-- 定义需要采集的指标
+		local metrics = {
+			current = "temp1_input",
+			max     = "temp1_max",
+			crit    = "temp1_crit"
+		}
+
+		local found_data = false
+		for key, fname in pairs(metrics) do
+			local val = fs.readfile(path .. fname)
+			if val then
+				info[key] = tonumber(val) / 1000
+				found_data = true
+			end
+		end
+
+		-- 只有当该节点确实存在温度数据时才加入结果集
+		if found_data then
+			results[entry] = info
+		end
+	end
+
+	return (next(results) and results or nil)
+end
+
+--- 解析 CPU 硬件加速的加密算法列表
+-- @return table 包含所有硬件加速算法名称的数组
+function get_hw_crypto_engines()
+	local engines = {}
+	-- 执行命令并读取输出
+	local handle = io.popen("openssl engine -pre DUMP_INFO devcrypto 2>&1")
+	if not handle then return nil end
+
+	for line in handle:lines() do
+		-- 匹配包含 "(hw accelerated)" 的行
+		if line:find("(hw accelerated)", 1, true) then
+			-- 提取 Cipher 后面的算法名称 (匹配 Cipher 到第一个逗号之间的内容)
+			local name = line:match("Cipher ([^,]+),")
+			if name then
+				-- 插入结果数组
+				engines[#engines + 1] = name
+			end
+		end
+	end
+	handle:close()
+
+	return (#engines > 0 and engines or nil)
 end
