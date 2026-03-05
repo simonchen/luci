@@ -26,6 +26,15 @@ msgstr "内建"
 msgid "Bing Wallpapers"
 msgstr "Bing 壁纸"
 
+msgid "SpotLight Wallpaper"
+msgstr "SpotLight 壁纸"
+
+msgid "Login panel center aligned"
+msgstr "登录面板中心对齐"
+
+msgid "Setting web url or local path (e.g, /www/logo.jpg)"
+msgstr "设置web url 或者用本地相对路径 (例如, /www/logo.jpg)"
+
 msgid "Theme mode"
 msgstr "主题模式"
 

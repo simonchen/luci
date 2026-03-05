@@ -24,6 +24,8 @@ if nxfs.access('/etc/config/argon') then
 	blur_opacity_dark = uci:get_first('argon', 'global', 'transparency_dark')
 	mode = uci:get_first('argon', 'global', 'mode')
 	bing_background = uci:get_first('argon', 'global', 'bing_background')
+	login_panel_center = uci:get_first('argon', 'global', 'login_panel_center')
+	logo_url = uci:get_first('argon', 'global', 'logo_url')
 end
 
 function glob(...)
@@ -55,9 +57,17 @@ br.reset = false
 br.submit = false
 s = br:section(SimpleSection) 
 
+o = s:option(Value, "logo_url", translate('Logo URL'), translate('Setting web url or local path (e.g, /www/logo.jpg)'))
+o.default = logo_url
+
+o = s:option(Flag, "login_panel_center", translate('Login panel center aligned'))
+o.default = login_panel_center
+o.rmempty = false
+
 o = s:option(ListValue, 'bing_background', translate('Wallpaper Source'))
 o:value('0', translate('Built-in'))
 o:value('1', translate('Bing Wallpapers'))
+o:value('2', translate('SpotLight Wallpapers'))
 o.default = bing_background
 o.rmempty = false
 
@@ -112,16 +122,17 @@ o.inputstyle = 'reload'
 
 function br.handle(self, state, data)
     if (state == FORM_VALID and data.blur ~= nil and data.blur_dark ~= nil and data.transparency ~= nil and data.transparency_dark ~= nil and data.mode ~= nil) then
-        nxfs.writefile('/tmp/aaa', data)
         for key, value in pairs(data) do
-            uci:set('argon','@global[0]',key,value)
+            if key ~= 'save' then
+                uci:set('argon','@global[0]',key,value)
+            end
         end 
         uci:commit('argon')
     end
     return true
 end
 
-ful = SimpleForm('upload', translate('Upload  (Free: ') .. wa.byte_format(free_byte) .. ')', translate("You can upload files such as jpg,png,gif,mp4,webm files, To change the login page background."))
+ful = SimpleForm('upload', translate('Upload  (Free: ') .. wa.byte_format(free_byte) .. ')', translate("You can upload files such as jpg,png,gif,webp,mp4,webm files, To change the login page background."))
 ful.reset = false
 ful.submit = false
 

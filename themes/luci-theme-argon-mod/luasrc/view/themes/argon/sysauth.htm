@@ -20,6 +20,12 @@
 
 	Licensed to the public under the Apache License 2.0
 -%>
+<%
+  -- Set HTTP headers to prevent client-side caching
+  luci.http.header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+  luci.http.header("Pragma", "no-cache")        -- For HTTP/1.0 compatibility
+  luci.http.header("Expires", "0")              -- For older browsers
+%>
 
 <%+header_login%>
 <%
@@ -60,19 +66,52 @@
 		return backgroundTable,backgroundCount
 	end
 
+	local logo_url			= fs.access('/etc/config/argon') and uci:get_first('argon', 'global', 'logo_url')
+	local login_panel_center	= fs.access('/etc/config/argon') and uci:get_first('argon', 'global', 'login_panel_center') or "0"
 	local boardinfo			= util.ubus("system", "board")
 	local bingUrl 			= "http://www.bing.com/"
-	local bingApiUrl 		= bingUrl .. "HPImageArchive.aspx?format=js&idx=0&n=1&mkt=en-US"
 	local themeDir			= media .. "/background/"
 	local bgUrl 			= media .. "/img/bg1.jpg"
+	local bgTitle			= ""
+	local bgDescription		= ""
 	local useBing			= fs.access('/etc/config/argon') and uci:get_first('argon', 'global', 'bing_background') or "0"
 	local backgroundTable, backgroundCount 		= fetchMedia("/www" .. themeDir .. "*",themeDir)
 	local backgroundType 	= "Image"
 
+	local use_spotlight = false 
+	local bingApiUrl		= ""
+
 	function getBing()
-		local bing = sys.exec("wget --timeout=0.5 -qO- '%s'" %bingApiUrl)
+		-- local bing = sys.exec("wget --timeout=0.5 -qO- '%s'" %bingApiUrl)
+	        if not use_spotlight then
+        	        bingApiUrl             = bingUrl .. "HPImageArchive.aspx?format=js&idx=0&n=3&mkt=zh-CN"
+        	else
+                	bingApiUrl             = "https://fd.api.iris.microsoft.com/v4/api/selection?&placement=88000820&bcnt=4&country=HK&locale=zh-CN&fmt=json"
+        	end
+
+		local bing = sys.exec("curl --connect-timeout 5 -A 'WindowsShellClient/10.0.19044.1503 (arch/x64; hpx/444; locale/zh-CN)' -H 'Cookie: _EDGE_S=mkt=zh-cn; _SS=SID=0&HV=0' '%s'" %bingApiUrl)
+		
 		if (bing and bing ~= '') then
-			bgUrl 	= bingUrl .. json.parse(bing).images[1].url
+			if not use_spotlight then 
+				local images = json.parse(bing).images
+				local randomIndex = math.random(#images)
+				bgUrl 	= bingUrl .. images[randomIndex].url
+			else
+				items, err = json.parse(bing).batchrsp.items
+				if not items then
+					print(err)
+				end
+				local randomIndex = math.random(#items)
+				item_str = items[randomIndex].item
+				item, err = json.parse(item_str)
+				if not item then
+					print(err)
+				end
+				bgUrl = item.ad.landscapeImage.asset
+				bgTitle = item.ad.iconHoverText
+				bgDescription = item.ad.description
+			end
+			
 		end
 	end
 
@@ -85,9 +124,78 @@
 			end
 		end
 	else
+		if ( useBing == "2" ) then
+			use_spotlight = true
+		end
 		pcall(getBing)
 	end
 %>
+
+<% if login_panel_center == "1" then %>
+<style type="text/css">
+.login-page .login-container {
+    margin: 0 20% 0 calc(50% - 210px);
+    min-height: 50% !important;
+    margin-top: 8%;
+    height: 50%;
+    border-radius: 1em;
+}
+
+.login-page .login-container .login-form {
+    max-width: 820px;
+    width: 100%;
+    min-height: 500px !important;
+    height: 500px !important;
+    border-radius: 1em;
+}
+
+.login-page .login-container footer {
+    display: none;
+    bottom: 30%;
+}
+
+.login-page .login-container .login-form .cbi-button-apply {
+    margin-bottom: 0;
+}
+
+.login-page .login-container .login-form .form-login .input-group .cbi-input-password {
+    letter-spacing: 0.125em;
+    font-family: Verdana, sans-serif;
+    -webkit-text-stroke-width: 1.5px;
+}
+
+@media screen and (max-width: 480px) {
+    .login-container {
+        margin-top: 0 !important;
+        height: 100% !important;
+        min-height: 100% !important;
+    }
+
+    .login-page .login-container .login-form {
+        min-height： 100% !important;
+        height: 100% !important;
+    }
+
+    .login-page .login-container footer {
+            bottom: 0 !important;
+    }
+}
+
+a.brand {margin-left: 30% !important;}
+a.brand img {
+    display: none;
+}
+
+a.brand.logo{
+    height: 80px;
+    padding-left: 80px;
+    background: url(<%=logo_url%>);
+    background-position: 0 0;
+    background-size: 50px 50px;
+    background-repeat: no-repeat;
+}
+</style>
+<% end %>
 <!-- Login Page Start -->
 <div class="login-page">
 	
@@ -102,13 +210,13 @@
 	<!-- Video Player End -->
 	<% else %>
 	<!-- Image Background Start -->
-	<div class="main-bg" id="main-bg" style="background-image:url(<%=bgUrl%>)"></div>
+	<div class="main-bg" id="main-bg" style="background-image:url(<%=bgUrl%>)" title="<%=bgTitle%>&#10;&#10;<%=bgDescription%>"></div>
 	<!-- Image Background End -->
 	<% end %>
 	<!-- Login Container Start -->
 	<div class="login-container">
 		<div class="login-form">
-			<a class="brand" href="/"><img src="<%=media%>/img/argon.svg" class="icon"><span
+			<a class="brand <% if logo_url then print('logo') end %>" href="/"><img src="<%=media%>/img/argon.svg" class="icon"><span
 					class="brand-text"><%=striptags( (boardinfo.hostname or "?") .. ( (node and node.title) and ' - ' .. translate(node.title) or '')) %></span></a>
 			<form class="form-login" method="post" action="<%=pcdata(luci.http.getenv("REQUEST_URI"))%>">
 

@@ -199,6 +199,7 @@
 	local dark_css = fs.readfile('/www/luci-static/argon/css/dark.css')
 	local bar_color = '#5e72e4'
 	local primary, dark_primary, blur_radius, blur_radius_dark, blur_opacity
+	local logo_url
 	if fs.access('/etc/config/argon') then
 		primary = uci:get_first('argon', 'global', 'primary')
 		dark_primary = uci:get_first('argon', 'global', 'dark_primary')
@@ -208,6 +209,7 @@
 		blur_opacity_dark = uci:get_first('argon', 'global', 'transparency_dark')
 		mode = uci:get_first('argon', 'global', 'mode')
 		bar_color = mode == 'dark' and dark_primary or primary
+		logo_url = uci:get_first('argon', 'global', 'logo_url')
 	end
 	
 	
@@ -263,6 +265,15 @@
 		--blur-opacity-dark:<%=blur_opacity_dark%>;
 	}
 	<% end -%>
+a.brand.logo {
+    padding: 10px;
+    padding-left: 60px !important;
+    background: url(<%=logo_url%>);
+    background-position: 0 0;
+    background-size: 50px 50px;
+    background-repeat: no-repeat;
+    font-size: 20px !important;
+}
 	</style>
 	<link rel="shortcut icon" href="<%=media%>/favicon.ico">
 	<% if node and node.css then %>
@@ -271,9 +282,9 @@
 	<% if css then %>
 	<style title="text/css"><%=css %></style>
 	<% end -%>
-	<script src="<%=resource%>/cbi.js<%# ?v=PKG_VERSION %>"></script>
-	<script src="<%=resource%>/xhr.js<%# ?v=PKG_VERSION %>"></script>
-	<script src="<%=media%>/js/jquery.min.js<%# ?v=PKG_VERSION %>"></script>
+	<script src="<%=resource%>/cbi.js?v=1.7.3"></script>
+	<script src="<%=resource%>/xhr.js?v=1.7.3"></script>
+	<script src="<%=media%>/js/jquery.min.js?v=1.7.3"></script>
 </head>
 
 <body
@@ -282,7 +293,7 @@
 	<div class="main">
 		<div class="main-left">
 			<div class="sidenav-header d-flex align-items-center">
-				<a class="brand" href="#"><%=boardinfo.hostname or "?"%></a>
+				<a class="brand <% if logo_url then print('logo') end %>" href="#"><%=boardinfo.hostname or "?"%></a>
 			</div>
 			<% render_topmenu() %>
 		</div>
@@ -291,7 +302,7 @@
 				<div class="fill">
 					<div class="container">
 						<a class="showSide"></a>
-						<a class="brand" href="#"><%=boardinfo.hostname or "?"%></a>
+						<a class="brand <% if logo_url then print('logo') end %>" href="#"><%=boardinfo.hostname or "?"%></a>
 						<div class="pull-right">
 							<% render_changes() %>
 							<span id="xhr_poll_status" style="display:none"
