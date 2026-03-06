@@ -199,7 +199,7 @@
 	local dark_css = fs.readfile('/www/luci-static/argon/css/dark.css')
 	local bar_color = '#5e72e4'
 	local primary, dark_primary, blur_radius, blur_radius_dark, blur_opacity
-	local logo_url
+	local logo_url, custom_script, custom_script_content
 	if fs.access('/etc/config/argon') then
 		primary = uci:get_first('argon', 'global', 'primary')
 		dark_primary = uci:get_first('argon', 'global', 'dark_primary')
@@ -210,6 +210,8 @@
 		mode = uci:get_first('argon', 'global', 'mode')
 		bar_color = mode == 'dark' and dark_primary or primary
 		logo_url = uci:get_first('argon', 'global', 'logo_url')
+		custom_script = uci:get_first('argon', 'global', 'custom_script') or "/etc/config/argon_custom_script"
+		custom_script_content = fs.readfile(custom_script) or ""
 	end
 	
 	
@@ -274,6 +276,13 @@ a.brand.logo {
     background-repeat: no-repeat;
     font-size: 20px !important;
 }
+.cbi-value-field:has(.cbi-input-textarea) {
+    display: block;
+}
+
+.cbi-value-field .cbi-input-textarea {
+    border: 1px solid #ccc;
+}
 	</style>
 	<link rel="shortcut icon" href="<%=media%>/favicon.ico">
 	<% if node and node.css then %>
@@ -289,7 +298,7 @@ a.brand.logo {
 
 <body
 	class="<%- if node then %><%= striptags( node.title ) %><%- end %> <% if luci.dispatcher.context.authsession then %>logged-in<% end %> lang_<%=luci.i18n.context.lang%> <%=mode %>  ">
-
+<%=custom_script_content%>
 	<div class="main">
 		<div class="main-left">
 			<div class="sidenav-header d-flex align-items-center">
