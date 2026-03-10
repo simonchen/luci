@@ -131,8 +131,22 @@
 	end
 %>
 
-<% if login_panel_center == "1" then %>
 <style type="text/css">
+.sysauth_sysinfo {
+    position: absolute;
+    top: 35%;
+    font-size: 0.8rem;
+}
+.sysauth_sysinfo p {
+    padding: 0.2rem;
+}
+span#uptime, span#loadavg {
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-left: 1rem;
+    color: #666;
+}
+<% if login_panel_center == "1" then %>
 .login-page .login-container {
     margin: 0 20% 0 calc(50% - 210px);
     min-height: 50% !important;
@@ -194,8 +208,8 @@ a.brand.logo{
     background-size: 50px 50px;
     background-repeat: no-repeat;
 }
-</style>
 <% end %>
+</style>
 <!-- Login Page Start -->
 <div class="login-page">
 	
@@ -216,8 +230,13 @@ a.brand.logo{
 	<!-- Login Container Start -->
 	<div class="login-container">
 		<div class="login-form">
+			<iframe src="/qd.htm" frameborder="0" width="200" height="40" style="overflow:hidden;position:relative;top:0;float:left;" scrolling="no"></iframe>
 			<a class="brand <% if logo_url then print('logo') end %>" href="/"><img src="<%=media%>/img/argon.svg" class="icon"><span
 					class="brand-text"><%=striptags( (boardinfo.hostname or "?") .. ( (node and node.title) and ' - ' .. translate(node.title) or '')) %></span></a>
+			<div class="sysauth_sysinfo">
+                		<p><span><%:Uptime%></span><span id="uptime"></span></p>
+		                <p><span><%:Load Average%></span><span id="loadavg"></span></p>
+			</div>
 			<form class="form-login" method="post" action="<%=pcdata(luci.http.getenv("REQUEST_URI"))%>">
 
 				<%- if fuser then %>
@@ -266,6 +285,28 @@ a.brand.logo{
 						img.src = ''
 					}, 5000);
 				}
+
+		function updateStatus(x, info) {
+			if (e = document.getElementById('uptime'))
+				e.innerHTML = String.format('%t', info.uptime);
+                        if (e = document.getElementById('loadavg'))
+                                e.innerHTML = String.format(
+                                        '%.02f, %.02f, %.02f',
+                                        info.load[0] / 65535.0,
+                                        info.load[1] / 65535.0,
+                                        info.load[2] / 65535.0
+                                );
+		}
+                var ready_next = true;
+                window.setInterval(function() {
+                        if (!ready_next) return;
+                        ready_next = false;
+                        XHR.get('/cgi-bin/luci/check_sysinfo', { status: 1 }, function(x, info){
+                                updateStatus(x, info);
+                                window.setTimeout(function() { ready_next = true; }, 5000);
+                        });
+                }, 500);
+
 			//]]></script>
 			<% end %>
 <%+footer%>
