@@ -811,3 +811,39 @@ function get_hw_crypto_engines()
 
 	return (#engines > 0 and engines or nil)
 end
+
+--- Get RX/TX traffic with timestamp and array format
+-- @return Table with timestamp and ifaces { name = [rx, tx] }
+function get_interface_traffic()
+    local os = require "os"
+    local traffic = {
+        timestamp = os.time(), -- Get current system time in seconds
+        ifaces = {}
+    }
+    
+    local fd = io.open("/proc/net/dev", "r")
+    if not fd then return nil end
+
+    -- Skip 2 header lines
+    fd:read("*l")
+    fd:read("*l")
+
+    for line in fd:lines() do
+        local interface, stats = line:match("^%s*([^%s:]+):%s*(.*)$")
+        if interface and stats then
+            local values = {}
+            for v in stats:gmatch("%d+") do
+                table.insert(values, v)
+            end
+            
+            -- Store as [rx_bytes, tx_bytes] array
+            traffic.ifaces[interface] = {
+                tonumber(values[1]) or 0,
+                tonumber(values[9]) or 0
+            }
+        end
+    end
+
+    fd:close()
+    return traffic
+end
