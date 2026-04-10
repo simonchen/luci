@@ -140,7 +140,7 @@
 .sysauth_sysinfo p {
     padding: 0.2rem;
 }
-span#uptime, span#loadavg {
+span#uptime, span#loadavg, span#rx, span#tx {
     font-weight: 600;
     font-size: 0.9rem;
     margin-left: 1rem;
@@ -193,6 +193,10 @@ span#uptime, span#loadavg {
     .login-page .login-container footer {
             bottom: 0 !important;
     }
+
+    .sysauth_sysinfo {
+        top: 15%;
+    }
 }
 
 a.brand {margin-left: 30% !important;}
@@ -207,6 +211,10 @@ a.brand.logo{
     background-position: 0 0;
     background-size: 50px 50px;
     background-repeat: no-repeat;
+}
+<% else %>
+.sysauth_sysinfo {
+    top: 15%;
 }
 <% end %>
 </style>
@@ -230,7 +238,7 @@ a.brand.logo{
 	<!-- Login Container Start -->
 	<div class="login-container">
 		<div class="login-form">
-			<!--iframe src="/qd.htm" frameborder="0" width="200" height="40" style="overflow:hidden;position:relative;top:0;float:left;" scrolling="no"></iframe-->
+			<!-- iframe src="/qd.htm" frameborder="0" width="200" height="40" style="overflow:hidden;position:absolute;top:0;float:left;" scrolling="no"></iframe -->
 			<a class="brand <% if logo_url then print('logo') end %>" href="/"><img src="<%=media%>/img/argon.svg" class="icon"><span
 					class="brand-text"><%=striptags( (boardinfo.hostname or "?") .. ( (node and node.title) and ' - ' .. translate(node.title) or '')) %></span></a>
 			<div class="sysauth_sysinfo">
@@ -333,12 +341,14 @@ function formatSpeed(speedInBytes) {
 			}
 		}
                 var ready_next = true;
+		var very_first_time = true;
                 window.setInterval(function() {
                         if (!ready_next) return;
                         ready_next = false;
                         XHR.get('/cgi-bin/luci/check_sysinfo', { status: 1 }, function(x, info){
                                 updateStatus(x, info);
-                                window.setTimeout(function() { ready_next = true; }, 5000);
+                                window.setTimeout(function() { ready_next = true; }, very_first_time ? 1000 : 5000);
+				very_first_time = false;
                         });
                 }, 500);
 
