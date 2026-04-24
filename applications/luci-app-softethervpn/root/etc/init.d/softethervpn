@@ -8,7 +8,7 @@
 # See /LICENSE for more information.
 #
 
-START=99
+START=100
 STOP=10
 
 CONFIG=softethervpn
@@ -34,12 +34,14 @@ start()
 	[ $enable -ne 1 ] && exit 0
 	logger -t 'softethervpn' "Starting softether vpnserver service."
 	/usr/bin/env LANG=en_US.UTF-8 /usr/libexec/softethervpn/vpnserver start > /dev/null 2>&1
-	fw3 reload
+	#fw3 reload
+	[ -f "/usr/share/softethervpn/firewall.include" ] && sh /usr/share/softethervpn/firewall.include
 }
 
 stop()
 {
 	logger -t 'softethervpn' "Stopping softether vpnserver service."
 	/usr/bin/env LANG=en_US.UTF-8 /usr/libexec/softethervpn/vpnserver stop > /dev/null 2>&1
-	fw3 reload
+	#fw3 reload
+	[ -f "/usr/share/softethervpn/firewall.include" ] && sh /usr/share/softethervpn/firewall.include
 }

@@ -1,14 +1,31 @@
 #!/bin/sh
 
+comment="Rule For SoftEther VPN Server"
+
 openvpnport=$(cat /usr/libexec/softethervpn/vpn_server.config 2>/dev/null|grep OpenVPN_UdpPortList | awk -F " " '{print $3}')
 [ -z "$openvpnport" ] && openvpnport=1194
-iptables -D INPUT -p udp -m multiport --dports 500,1701,4500 -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT 2>/dev/null
-[ -n "$openvpnport" ] && iptables -D INPUT -p udp --dport $openvpnport -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT 2>/dev/null
-[ -n "$openvpnport" ] && iptables -D INPUT -p tcp --dport $openvpnport -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT 2>/dev/null
-iptables -D INPUT -p tcp --dport 443 -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT 2>/dev/null
-iptables -D INPUT -p tcp --dport 5555 -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT 2>/dev/null
-iptables -D INPUT -p tcp --dport 8888 -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT 2>/dev/null
-iptables -D INPUT -p tcp --dport 992 -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT 2>/dev/null
+ports="992,5555,8888,$openvpnport"
+
+# Default
+rm_def() {
+	while iptables -D INPUT -p udp -m multiport --dports 500,1701,4500 -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT 2>/dev/null; do :; done
+	if [ -n "$openvpnport" ]; then 
+		while iptables -D INPUT -p udp --dport $openvpnport -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT 2>/dev/null; do :; done
+		while iptables -D INPUT -p tcp --dport $openvpnport -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT 2>/dev/null; do :; done
+	fi
+	while iptables -D INPUT -p tcp --dport 443 -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT 2>/dev/null; do :; done
+	while iptables -D INPUT -p tcp --dport 5555 -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT 2>/dev/null; do :; done
+	while iptables -D INPUT -p tcp --dport 8888 -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT 2>/dev/null; do :; done
+	while iptables -D INPUT -p tcp --dport 992 -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT 2>/dev/null; do :; done
+}
+rm_def
+
+# NAT/SSR bypassing
+rm_nat() {
+	while iptables -t nat -D OUTPUT -p tcp -m multiport --dports $ports -m comment --comment "$comment" -j RETURN 2>/dev/null; do :; done
+	while iptables -t nat -D SS_SPEC_WAN_AC -p tcp -m multiport --dports $ports -m comment --comment "$comment" -j RETURN 2>/dev/null; do :; done
+}
+rm_nat
 
 enable=$(uci get softethervpn.@softether[0].enable)
 if [ $enable -eq 1 ]; then
@@ -19,4 +36,12 @@ if [ $enable -eq 1 ]; then
 	iptables -I INPUT -p tcp --dport 5555 -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT
 	iptables -I INPUT -p tcp --dport 8888 -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT
 	iptables -I INPUT -p tcp --dport 992 -m comment --comment "Rule For SoftEther VPN Server" -j ACCEPT
+
+	# NAT/SSR bypassing
+	if iptables -t nat -L SS_SPEC_WAN_AC >/dev/null 2>&1; then
+		iptables -t nat -I SS_SPEC_WAN_AC 1 -p tcp -m multiport --dports $ports -m comment --comment "$comment" -j RETURN
+	else
+		iptables -t nat -I OUTPUT 1 -p tcp -m multiport --dports $ports -m comment --comment "$comment" -j RETURN
+	fi
+
 fi
