@@ -27,6 +27,14 @@ uci_get_by_type() {
 	echo ${ret:=$3}
 }
 
+up_tap_interfaces() {
+    for tap in $(ifconfig -a | grep -o 'tap_[^ ]*' | sed 's/://'); do
+	sleep 3
+        ifconfig "$tap" up
+        logger -t 'softethervpn' "Forcing interface $tap UP."
+    done
+}
+
 start()
 {
 	config_load softethervpn
@@ -34,6 +42,7 @@ start()
 	[ $enable -ne 1 ] && exit 0
 	logger -t 'softethervpn' "Starting softether vpnserver service."
 	/usr/bin/env LANG=en_US.UTF-8 /usr/libexec/softethervpn/vpnserver start > /dev/null 2>&1
+	up_tap_interfaces
 	#fw3 reload
 	[ -f "/usr/share/softethervpn/firewall.include" ] && sh /usr/share/softethervpn/firewall.include
 }
