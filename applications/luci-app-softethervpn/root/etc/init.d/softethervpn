@@ -42,6 +42,7 @@ stop()
 {
 	logger -t 'softethervpn' "Stopping softether vpnserver service."
 	/usr/bin/env LANG=en_US.UTF-8 /usr/libexec/softethervpn/vpnserver stop > /dev/null 2>&1
+	/usr/bin/killall -9 "/usr/libexec/softethervpn/vpnserver" 2>/dev/null
 	#fw3 reload
 	[ -f "/usr/share/softethervpn/firewall.include" ] && sh /usr/share/softethervpn/firewall.include
 }
