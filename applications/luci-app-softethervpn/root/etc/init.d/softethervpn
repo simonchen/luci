@@ -9,7 +9,13 @@
 #
 
 START=100
-STOP=10
+NAME="softethervpn"
+USE_PROCD=1
+PROG="/usr/bin/softether.sh"
+
+prepare_script() {
+    cat << 'EOF' > "$PROG"
+#!/bin/sh /etc/rc.common
 
 CONFIG=softethervpn
 
@@ -19,39 +25,76 @@ get_config()
 }
 
 uci_get_by_type() {
-	local index=0
-	if [ -n $4 ]; then
-		index=$4
-	fi
-	local ret=$(uci get $CONFIG.@$1[$index].$2 2>/dev/null)
-	echo ${ret:=$3}
+        local index=0
+        if [ -n $4 ]; then
+                index=$4
+        fi
+        local ret=$(uci get $CONFIG.@$1[$index].$2 2>/dev/null)
+        echo ${ret:=$3}
 }
 
 up_tap_interfaces() {
     for tap in $(ifconfig -a | grep -o 'tap_[^ ]*' | sed 's/://'); do
-	sleep 3
+        sleep 3
         ifconfig "$tap" up
         logger -t 'softethervpn' "Forcing interface $tap UP."
     done
 }
 
-start()
-{
-	config_load softethervpn
-	config_foreach get_config softether
-	[ $enable -ne 1 ] && exit 0
-	logger -t 'softethervpn' "Starting softether vpnserver service."
-	/usr/bin/env LANG=en_US.UTF-8 /usr/libexec/softethervpn/vpnserver start > /dev/null 2>&1
-	up_tap_interfaces
-	#fw3 reload
-	[ -f "/usr/share/softethervpn/firewall.include" ] && sh /usr/share/softethervpn/firewall.include
+renice_zero() {
+	ni=-1
+	for pid in $(pidof vpnserver); do
+		for tid in $(ls /proc/$pid/task); do
+			renice $ni -p $tid > /dev/null 2>&1
+			logger -t 'softethervpn' "$tid Priority set to $ni (High Priority mode)"
+		done
+	done
 }
 
-stop()
+logger -t 'softethervpn-monitor' "Tap-Bridge monitor loop started."
+	config_load softethervpn
+        config_foreach get_config softether
+        [ "$enable" -ne "1" ] && exit 0
+        logger -t 'softethervpn' "Starting softether vpnserver service."
+        /usr/bin/env LANG=en_US.UTF-8 /usr/libexec/softethervpn/vpnserver start > /dev/null 2>&1
+        [ -f "/usr/share/softethervpn/firewall.include" ] && sh /usr/share/softethervpn/firewall.include
+
+sleep 5
+renice_zero
+
+LAN_BR=$(brctl show | awk '/lan/ {print $1; exit}')
+[ -z "$LAN_BR" ] && LAN_BR=$(brctl show | awk 'NR==2 {print $1}')
+[ -z "$LAN_BR" ] && LAN_BR="br-lan"
+
+while true; do
+    for tap in $(ifconfig -a | grep -o 'tap_[^ ]*' | sed 's/://'); do
+        ifconfig "$tap" up
+        if ! brctl show "$LAN_BR" | grep -q "$tap"; then
+            brctl addif "$LAN_BR" "$tap" > /dev/null 2>&1
+            logger -t 'softethervpn-monitor' "Interface $tap re-bridged to $LAN_BR."
+        fi
+    done
+    sleep 5
+done
+EOF
+    chmod +x "$PROG"
+}
+
+start_service()
+{
+	prepare_script
+	procd_open_instance
+	procd_set_param command /bin/sh "$PROG"
+	procd_set_param respawn
+	procd_close_instance
+}
+
+stop_service()
 {
 	logger -t 'softethervpn' "Stopping softether vpnserver service."
 	/usr/bin/env LANG=en_US.UTF-8 /usr/libexec/softethervpn/vpnserver stop > /dev/null 2>&1
-	/usr/bin/killall -9 "/usr/libexec/softethervpn/vpnserver" 2>/dev/null
-	#fw3 reload
+	sleep 2
+	/usr/bin/killall -9 "/usr/libexec/softethervpn/vpnserver" > /dev/null 2>&1
+	/usr/bin/killall -9 "$PROG" > /dev/null 2>&1
 	[ -f "/usr/share/softethervpn/firewall.include" ] && sh /usr/share/softethervpn/firewall.include
 }
