@@ -68,8 +68,8 @@ LAN_BR=$(brctl show | awk '/lan/ {print $1; exit}')
 
 while true; do
     for tap in $(ifconfig -a | grep -o 'tap_[^ ]*' | sed 's/://'); do
-        ifconfig "$tap" up
         if ! brctl show "$LAN_BR" | grep -q "$tap"; then
+            ifconfig "$tap" up
             brctl addif "$LAN_BR" "$tap" > /dev/null 2>&1
             logger -t 'softethervpn-monitor' "Interface $tap re-bridged to $LAN_BR."
         fi
