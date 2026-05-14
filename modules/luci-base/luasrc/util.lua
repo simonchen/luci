@@ -751,7 +751,9 @@ function get_all_hwmon_info()
 	local results = {}
 
 	local entries = fs.dir(base)
-	if not entries then return nil end
+	-- if not entries then return nil end
+
+	if entries then
 
 	for entry in entries do
 		local path = base .. entry .. "/"
@@ -782,6 +784,48 @@ function get_all_hwmon_info()
 		-- 只有当该节点确实存在温度数据时才加入结果集
 		if found_data then
 			results[entry] = info
+		end
+	end
+
+	end
+
+	-- 2. 如果结果为空，触发 MTK 闭源驱动后备方案 (Fallback)
+	if not next(results) then
+		-- 优先使用 LuCI 内置的高效执行函数，若不存在则回退到原生 io.popen
+		local util = pcall(require, "luci.util") and require "luci.util"
+		local function exec_cmd(cmd)
+			if util and util.exec then
+				return util.exec(cmd)
+			else
+				local f = io.popen(cmd)
+				if not f then return "" end
+				local res = f:read("*all")
+				f:close()
+				return res
+			end
+		end
+
+		-- 定义闭源驱动接口与硬编码名称的映射
+		local mtk_interfaces = {
+			mt7915_phy0 = "rax0", -- 2.4G
+			mt7915_phy1 = "ra0"   -- 5G
+		}
+
+		for phy_name, iface in pairs(mtk_interfaces) do
+			-- 去掉命令中的 grep 和 awk，直接获取全部输出，让 Lua 来处理解析
+			local cmd = string.format("iwpriv %s stat 2>/dev/null", iface)
+			local output = exec_cmd(cmd)
+			-- 精准匹配：寻找 "CurrentTemperature = 55" 并捕捉其中的纯数字
+			-- %s* 表示允许任意空格，=? 表示允许有或没有等号
+			local temp_str = output:match("CurrentTemperature%s*=%s*(%d+)")
+			local temp_num = tonumber(temp_str)
+
+			if temp_num then
+				results[phy_name] = {
+					name = phy_name,
+					current = temp_num
+				}
+			end
 		end
 	end
 
