@@ -6,6 +6,12 @@ m.description = translate("Opensource Flow Offloading driver (Fast Path or Hardw
 
 m:append(Template("turboacc/turboacc_status"))
 
+function m.on_commit(map)
+    local current_state = map.uci:get("turboacc", "@turboacc[0]", "bbr_cca")
+    local cca = (current_state == "1") and "bbr" or "cubic"
+    luci.sys.call("sysctl -w net.ipv4.tcp_congestion_control=" .. cca .. " >/dev/null 2>&1")
+end
+
 s = m:section(TypedSection, "turboacc", "")
 s.addremove = false
 s.anonymous = true
