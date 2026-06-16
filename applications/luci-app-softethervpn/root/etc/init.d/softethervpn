@@ -42,11 +42,11 @@ up_tap_interfaces() {
 }
 
 renice_zero() {
-	ni=-1
+	ni=0
 	for pid in $(pidof vpnserver); do
 		for tid in $(ls /proc/$pid/task); do
 			renice $ni -p $tid > /dev/null 2>&1
-			logger -t 'softethervpn' "$tid Priority set to $ni (High Priority mode)"
+			logger -t 'softethervpn' "$tid Priority set to $ni (Normal Priority mode)"
 		done
 	done
 }
