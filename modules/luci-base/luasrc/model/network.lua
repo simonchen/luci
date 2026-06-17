@@ -1612,7 +1612,30 @@ function wifinet.active_encryption(self)
 end
 
 function wifinet.assoclist(self)
-	return self.iwinfo.assoclist or { }
+	local assoclist = self.iwinfo.assoclist or { }
+
+	local ifname = self.iwinfo.ifname
+	local ubus = require("ubus")
+	local ctx = ubus.connect()
+	if ctx then
+	    local hostapd_status = ctx:call("hostapd." .. ifname, "get_clients", {})
+	    if hostapd_status and hostapd_status.clients then
+		for mac, mac_info in pairs(assoclist) do
+		    local h_client = hostapd_status.clients[mac:lower()]
+		    if h_client then
+			mac_info.hostapd = {
+			    rx_bytes = h_client.bytes.rx,
+			    tx_bytes = h_client.bytes.tx
+			}
+		    else
+			mac_info.hostapd = { rx_bytes = 0, tx_bytes = 0 }
+		    end
+		end
+	    end
+	    ctx:close()
+	end
+
+	return assoclist
 end
 
 function wifinet.frequency(self)

@@ -121,6 +121,29 @@
 		return s.replace(/ /g, '&#160;');
 	}
 
+	function formatTotal(b){let k=1024,units=['B/s','KB/s','MB/s','GB/s','TB/s'],i=Math.floor(Math.log(b)/Math.log(k));if(i<1)i=1;if(i>=units.length)i=units.length-1;return (b/Math.pow(k,i)).toFixed(1)+' '+units[i]}
+
+	const trafficCache = {};
+
+	function calculateSpeed(ifname, currentRx, currentTx) {
+	    const now = Date.now(); 
+	    let rxSpeed = '0', txSpeed = '0';
+
+	    if (trafficCache[ifname]) {
+		const last = trafficCache[ifname];
+		const timeDiffSec = (now - last.time) / 1000; // 毫秒转为秒
+
+		if (timeDiffSec > 0) {
+		    rxSpeed = Math.max(0, (currentRx - last.rx) / timeDiffSec);
+		    txSpeed = Math.max(0, (currentTx - last.tx) / timeDiffSec);
+		}
+	    }
+
+	    trafficCache[ifname] = { rx: currentRx, tx: currentTx, time: now };
+
+	    return { rx_speed: rxSpeed, tx_speed: txSpeed };
+	}
+
 	function wifirate(bss, rx) {
 		var p = rx ? 'rx_' : 'tx_',
 		    s = '%.1f <%:Mbit/s%>, %d<%:MHz%>'
@@ -143,6 +166,16 @@
 			if (nss) s += ', HE-NSS %d'.format(nss);
 			if (he_gi) s += ', HE-GI %d'.format(he_gi);
 			if (he_dcm) s += ', HE-DCM %d'.format(he_dcm);
+		}
+
+		return s;
+	}
+
+	function show_speed(bss) {
+		var s = "";
+		if (bss.hostapd && bss.hostapd.rx_bytes && bss.hostapd.tx_bytes) {
+			var rate = calculateSpeed(bss.bssid, bss.hostapd.rx_bytes, bss.hostapd.tx_bytes);	
+			s += '<br><span style="color:#00a500;">RX: ' + formatTotal(rate.rx_speed) + ' | TX: ' + formatTotal(rate.tx_speed) + '</span>';
 		}
 
 		return s;
@@ -201,7 +234,7 @@
 
 	var hosts = <%=luci.http.write_json(luci.sys.net.host_hints())%>;
 
-	XHR.poll(5, '<%=url('admin/network/wireless_status', table.concat(netlist, ","))%>', null,
+	XHR.poll(3, '<%=url('admin/network/wireless_status', table.concat(netlist, ","))%>', null,
 		function(x, st)
 		{
 			if (st)
@@ -358,7 +391,7 @@
 								assoclist[j].signal, assoclist[j].noise
 							);
 
-							tr.insertCell(-1).innerHTML = nowrap(wifirate(assoclist[j], true)) + '<br />' + nowrap(wifirate(assoclist[j], false));
+							tr.insertCell(-1).innerHTML = nowrap(wifirate(assoclist[j], true)) + '<br />' + nowrap(wifirate(assoclist[j], false)) + show_speed(assoclist[j]);
 
 							rowstyle = (rowstyle == 1) ? 2 : 1;
 						}
