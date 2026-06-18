@@ -112,6 +112,7 @@
 <% end %>
 
 <script type="text/javascript" src="<%=resource%>/cbi.js?v=git-21.165.14196-d25a9d2"></script>
+<script type="text/javascript" src="<%=resource%>/netmon-rate.js"></script>
 <script type="text/javascript">//<![CDATA[
 	var wifidevs = <%=luci.http.write_json(netdevs)%>;
 
@@ -169,6 +170,126 @@
 		}
 
 		return s;
+	}
+
+	var __wifirate_charts = {};
+	var __sse_pool = [];
+	function create_wifirate_chart(bssid, container) {
+		var assoctable = document.getElementById('iw-assoclist-chart');
+		if (!assoctable) return;
+
+		var mon = new window.NetworkMonitor(container, {width: 500, height: 150, activeTab: 'tx', rxColor: '#00e676', txColor: '#ff9100', canvasBg: 'transparent'});
+		__wifirate_charts[bssid] = mon;
+	}
+
+	function update_wifirate_chart(bssid, hostapd) {
+		var tr = document.getElementById(bssid);
+		if (!tr) return;
+
+		if (!(bssid in __wifirate_charts)) return;
+		if (!hostapd) return;
+
+		var mon = __wifirate_charts[bssid];
+		mon.pushRx(hostapd.rx_rate);
+		mon.pushTx(hostapd.tx_rate);
+		mon.updateTotalRx(hostapd.rx_bytes);
+		mon.updateTotalTx(hostapd.tx_bytes);
+	}
+
+	function startMonitorRate() {
+		var url = '<%=url('admin/network/wireless_rate', table.concat(netlist, ","))%>';
+		var evtSrc = new EventSource(url);
+		__sse_pool.push(evtSrc);
+		var is_first_time = true;
+		evtSrc.onmessage = function(event) {
+			var assoctable = document.getElementById('iw-assoclist-chart');
+			if (!assoctable) return;
+
+			var data = JSON.parse(event.data);
+			while (is_first_time && assoctable.rows.length > 1)
+                        	assoctable.rows[1].parentNode.removeChild(assoctable.rows[1]);
+			is_first_time = false;
+			setTimeout(() => { updateAssocStations(null, data); }, 0); // Async
+
+			var cur_bssids = [];
+			for( var i = 0; i < data.length; i++ ) {
+				var iw = data[i];
+				var assoclist = [ ];
+				for( var bssid in iw.assoclist ) {
+					assoclist.push(iw.assoclist[bssid]);
+					assoclist[assoclist.length-1].bssid = bssid;
+				}
+				assoclist.sort(function(a, b) { a.bssid < b.bssid });
+				for( var j = 0; j < assoclist.length; j++ ) {
+					var bssid = assoclist[j].bssid;
+					var tr = document.getElementById(assoclist[j].bssid);
+					var cells = [];
+					var rowstyle = 1;
+					cur_bssids.push(bssid);
+					if (tr) {
+						for (var k = 0; k < 5; k++) cells.push(tr.cells[k]);
+					} else {
+						tr = assoctable.insertRow(-1);
+						tr.className = 'cbi-section-table-row cbi-rowstyle-' + rowstyle;
+						tr.id = assoclist[j].bssid;
+						for (var k = 0; k < 5; k++) cells.push(tr.insertCell(-1));
+						rowstyle = (rowstyle == 1) ? 2 : 1;
+					}
+
+                                        cells[1].innerHTML = String.format(
+                                        	'<span class="ifacebadge" title="%q"><img src="<%=resource%>/icons/wifi.png" /> %h</span>',
+                                                iw.device.name, iw.ifname
+                                        );
+
+                                        cells[2].innerHTML = nowrap(String.format('%h', iw.ssid ? iw.ssid : '?'));
+                                        cells[3].innerHTML = assoclist[j].bssid;
+
+                                        var host = hosts[assoclist[j].bssid];
+                                        if (host)
+                                        	cells[4].innerHTML = String.format(
+                                                	'<div style="max-width:200px;overflow:hidden;text-overflow:ellipsis">%s</div>',
+                                                        ((host.name && (host.ipv4 || host.ipv6))
+                                                        	? '%h (%s)'.format(host.name, host.ipv4 || host.ipv6)
+                                                                : '%h'.format(host.name || host.ipv4 || host.ipv6)).nobr()
+                                                );
+                                        else
+                                                cells[4].innerHTML = '?';
+
+					if (!(bssid in __wifirate_charts) && assoclist[j].hostapd)
+						create_wifirate_chart(bssid, cells[0]);
+					update_wifirate_chart(assoclist[j].bssid, assoclist[j].hostapd);
+				}
+
+			}
+			
+			for (bssid in __wifirate_charts) {
+				var tr = document.getElementById(bssid);
+				var is_left = (cur_bssids.indexOf(bssid) == -1);
+				if (tr) {
+					tr.style.display = (is_left) ? 'none' : '';
+				}
+			}	
+		};
+	}
+
+	function endMonitor() {
+		__sse_pool.forEach(function(evt) { evt.close(); });
+	}
+
+	window.onload = function() {
+		startMonitorRate();
+	}
+
+	window.onbeforeunload = function() {
+		endMonitor();
+	}
+
+	function switchTable(btn) {
+		const btn_txt1 = '<%:Detail%>', btn_txt2 = '<%:Rate%>';
+		var is_detail = (btn.value == btn_txt1); 
+		btn.value = is_detail ? btn_txt2 : btn_txt1;
+		document.getElementById("iw-assoclist-chart").style.display = is_detail ? "none" : "";
+		document.getElementById("iw-assoclist").style.display = is_detail ? "" : "none";
 	}
 
 	function show_speed(bss) {
@@ -234,8 +355,8 @@
 
 	var hosts = <%=luci.http.write_json(luci.sys.net.host_hints())%>;
 
-	XHR.poll(3, '<%=url('admin/network/wireless_status', table.concat(netlist, ","))%>', null,
-		function(x, st)
+	//XHR.poll(5, '<%=url('admin/network/wireless_status', table.concat(netlist, ","))%>', null,
+		function updateAssocStations(x, st)
 		{
 			if (st)
 			{
@@ -416,7 +537,7 @@
 				}
 			}
 		}
-	);
+	//);
 //]]></script>
 
 <h2 name="content"><%:Wireless Overview%></h2>
@@ -488,12 +609,26 @@
 	<% end %>
 
 
-	<h2><%:Associated Stations%></h2>
+	<h2><%:Associated Stations%><input type="button" class="cbi-button cbi-button-apply" value="<%:Detail%>" onclick="switchTable(this)" /></h2>
 
 	<fieldset class="cbi-section">
-		<table class="cbi-section-table valign-middle" style="margin:10px" id="iw-assoclist">
+		<table class="cbi-section-table valign-middle" style="margin:10px" id="iw-assoclist-chart">
 			<tr class="cbi-section-table-titles">
-				<th class="cbi-section-table-cell"></th>
+				<th class="cbi-section-table-cell" style="width:50% !important;"><%:RX Rate%> / <%:TX Rate%></th>
+				<th class="cbi-section-table-cell"><%:Interfaces%></th>
+                                <th class="cbi-section-table-cell"><%:SSID%></th>
+                                <th class="cbi-section-table-cell"><%:MAC-Address%></th>
+                                <th class="cbi-section-table-cell"><%:Host%></th>
+			</tr>
+                        <tr class="cbi-section-table-row cbi-rowstyle-2">
+                                <td class="cbi-value-field" colspan="6">
+                                        <em><%:Collecting data...%></em>
+                                </td>
+                        </tr>
+		</table>
+		<table class="cbi-section-table valign-middle" style="display:none;margin:10px" id="iw-assoclist">
+			<tr class="cbi-section-table-titles">
+				<th class="cbi-section-table-cell"><%:Interfaces%></th>
 				<th class="cbi-section-table-cell"><%:SSID%></th>
 				<th class="cbi-section-table-cell"><%:MAC-Address%></th>
 				<th class="cbi-section-table-cell"><%:Host%></th>

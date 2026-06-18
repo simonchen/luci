@@ -55,6 +55,9 @@ function index()
 			page = entry({"admin", "network", "wireless_status"}, call("wifi_status"), nil)
 			page.leaf = true
 
+			page = entry({"admin", "network", "wireless_rate"}, call("wifi_rate"), nil)
+                        page.leaf = true
+
 			page = entry({"admin", "network", "wireless_reconnect"}, post("wifi_reconnect"), nil)
 			page.leaf = true
 
@@ -346,6 +349,77 @@ function wifi_status(devs)
 	end
 
 	luci.http.status(404, "No such device")
+end
+
+function wifi_rate(devs)
+	luci.http.prepare_content("text/event-stream; charset=utf-8")
+	luci.http.header("Content-Type", "text/event-stream; charset=utf-8")
+	luci.http.header("Cache-Control", "no-cache")
+
+	local nixio = require "nixio"
+	local max_ms = 500
+	local last_time = nil
+        local mac_last_rx = {}
+        local mac_last_tx = {}
+
+        local s    = require "luci.tools.status"
+        local rv   = { }
+
+        local dev
+
+	luci.http.write("\n")
+	io.flush()
+
+	while true do
+		local sec, usec = nixio.gettimeofday()
+		local current_time = sec + (usec / 1000000)
+
+		local s    = require "luci.tools.status"
+		local rv   = { }
+		local dev
+
+	        for dev in devs:gmatch("[%w%.%-]+") do
+        	        rv[#rv+1] = s.wifi_network(dev)
+        	end
+
+        	if #rv > 0 then
+			for _, iw in ipairs(rv) do
+		                for mac, mac_info in pairs(iw.assoclist) do
+					local rx_rate = 0
+					local tx_rate = 0
+                    			if mac_info.hostapd then
+						if last_time ~= nil and 
+							mac_last_rx[mac] ~= nil and mac_last_tx[mac] ~= nil and
+							mac_info.hostapd.rx_bytes ~= nil and mac_info.hostapd.tx_bytes ~= nil then
+							time_delta = current_time - last_time
+							rx_rate = math.max(0, -(mac_last_rx[mac]["rx_bytes"] - mac_info.hostapd["rx_bytes"]) / time_delta)
+							tx_rate = math.max(0, -(mac_last_tx[mac]["tx_bytes"] - mac_info.hostapd["tx_bytes"]) / time_delta)
+						end
+						mac_info.hostapd["rx_rate"] = rx_rate
+						mac_info.hostapd["tx_rate"] = tx_rate
+			
+						mac_last_rx[mac] = {}			
+						mac_last_rx[mac]["rx_bytes"] = mac_info.hostapd["rx_bytes"]
+						mac_last_tx[mac] = {}
+						mac_last_tx[mac]["tx_bytes"] = mac_info.hostapd["tx_bytes"]
+					end
+				end
+
+			end
+			last_time = current_time
+		
+                	luci.http.prepare_content("application/json")
+			io.write("data: ")
+                	luci.http.write_json(rv)
+			io.write("\n\n")
+                	io.flush()
+        	else
+        		luci.http.status(404, "No such device")
+			break
+		end
+		
+		nixio.nanosleep(0, max_ms * 1000 * 1000)
+	end
 end
 
 local function wifi_reconnect_shutdown(shutdown, wnet)
