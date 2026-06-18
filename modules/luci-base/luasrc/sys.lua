@@ -473,7 +473,14 @@ function wifi.getiwinfo(ifname)
 
 	if ifname then
 		local d, n = ifname:match("^(%w+)%.network(%d+)")
-		local wstate = luci.util.ubus("network.wireless", "status") or { }
+		-- local wstate = luci.util.ubus("network.wireless", "status") or { }
+		local ubus = require("ubus")
+		local ctx = ubus.connect()
+		local wstate = {}
+		local hostapd_status = {}
+		if ctx then
+			wstate = ctx:call("network.wireless", "status", {})
+		end
 
 		d = d or ifname
 		n = n and tonumber(n) or 1
@@ -490,15 +497,35 @@ function wifi.getiwinfo(ifname)
 
 		local t = stat and iwinfo.type(ifname)
 		local x = t and iwinfo[t] or { }
-		return setmetatable({}, {
+		local iwinfo = setmetatable({}, {
 			__index = function(t, k)
 				if k == "ifname" then
 					return ifname
+				elseif k == "assoclist" then
+					local assoclist = x[k] and x[k](ifname) or {}
+					hostapd_status = ctx:call("hostapd." .. ifname, "get_clients", {})
+					if hostapd_status and hostapd_status.clients then
+					  for mac, mac_info in pairs(assoclist) do
+				    		local h_client = hostapd_status.clients[mac:lower()]
+				    		if h_client then
+							mac_info.hostapd = {
+								rx_bytes = h_client.bytes.rx,
+								tx_bytes = h_client.bytes.tx
+							}
+						else
+							mac_info.hostapd = { rx_bytes = 0, tx_bytes = 0 }
+						end
+					  end
+					end
+					return assoclist
 				elseif x[k] then
 					return x[k](ifname)
 				end
 			end
 		})
+		
+		return iwinfo
+
 	end
 end
 
