@@ -418,7 +418,7 @@ function wifi_rate(devs)
 			break
 		end
 		
-		nixio.nanosleep(0, max_ms * 1000 * 1000)
+		nixio.nanosleep(1, max_ms * 1000 * 1000)
 	end
 end
 
