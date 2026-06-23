@@ -510,7 +510,8 @@ function wifi.getiwinfo(ifname)
 				    		if h_client then
 							mac_info.hostapd = {
 								rx_bytes = h_client.bytes.rx,
-								tx_bytes = h_client.bytes.tx
+								tx_bytes = h_client.bytes.tx,
+								connected_sec = h_client.connected_sec
 							}
 						else
 							mac_info.hostapd = { rx_bytes = 0, tx_bytes = 0 }

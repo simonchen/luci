@@ -112,7 +112,7 @@
 <% end %>
 
 <script type="text/javascript" src="<%=resource%>/cbi.js?v=git-21.165.14196-d25a9d2"></script>
-<script type="text/javascript" src="<%=resource%>/netmon-rate.js"></script>
+<script type="text/javascript" src="<%=resource%>/netmon-rate.js?v=git-26.169.60243-6875a8b"></script>
 <script type="text/javascript">//<![CDATA[
 	var wifidevs = <%=luci.http.write_json(netdevs)%>;
 
@@ -122,6 +122,7 @@
 		return s.replace(/ /g, '&#160;');
 	}
 
+	const formatTime = s => new Date(s * 1000).toISOString().slice(11, 19);
 	function formatTotal(b){let k=1024,units=['B/s','KB/s','MB/s','GB/s','TB/s'],i=Math.floor(Math.log(b)/Math.log(k));if(i<1)i=1;if(i>=units.length)i=units.length-1;return (b/Math.pow(k,i)).toFixed(1)+' '+units[i]}
 
 	const trafficCache = {};
@@ -245,13 +246,17 @@
                                         cells[3].innerHTML = assoclist[j].bssid;
 
                                         var host = hosts[assoclist[j].bssid];
-                                        if (host)
+                                        if (host) {
                                         	cells[4].innerHTML = String.format(
                                                 	'<div style="max-width:200px;overflow:hidden;text-overflow:ellipsis">%s</div>',
                                                         ((host.name && (host.ipv4 || host.ipv6))
                                                         	? '%h (%s)'.format(host.name, host.ipv4 || host.ipv6)
                                                                 : '%h'.format(host.name || host.ipv4 || host.ipv6)).nobr()
                                                 );
+						if (assoclist[j].hostapd) {
+							cells[4].innerHTML += '<br> &#128994; %s'.format(formatTime(assoclist[j].hostapd.connected_sec));
+						}
+					}
                                         else
                                                 cells[4].innerHTML = '?';
 
@@ -495,13 +500,18 @@
 							tr.insertCell(-1).innerHTML = assoclist[j].bssid;
 
 							var host = hosts[assoclist[j].bssid];
-							if (host)
-								tr.insertCell(-1).innerHTML = String.format(
+							if (host) {
+								var trHost = tr.insertCell(-1);
+								trHost.innerHTML = String.format(
 									'<div style="max-width:200px;overflow:hidden;text-overflow:ellipsis">%s</div>',
 									((host.name && (host.ipv4 || host.ipv6))
 										? '%h (%s)'.format(host.name, host.ipv4 || host.ipv6)
 										: '%h'.format(host.name || host.ipv4 || host.ipv6)).nobr()
 								);
+								if (assoclist[j].hostapd) {
+                                                        		trHost.innerHTML += '<br> &#128994; %s'.format(formatTime(assoclist[j].hostapd.connected_sec));
+                                                		}
+							}
 							else
 								tr.insertCell(-1).innerHTML = '?';
 
