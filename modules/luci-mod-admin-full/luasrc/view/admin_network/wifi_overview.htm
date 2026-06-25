@@ -279,10 +279,20 @@
 
 	function endMonitor() {
 		__sse_pool.forEach(function(evt) { evt.close(); });
+		__sse_pool = [];
+	}
+
+	function restartMonitor() {
+		endMonitor();
+		startMonitorRate();
 	}
 
 	window.onload = function() {
 		startMonitorRate();
+		setInterval(function() {
+			restartMonitor();
+			console.log("=========== wifi_overview.htm: restartMonitor ==========");
+		}, 1000*1800);
 	}
 
 	window.onbeforeunload = function() {
