@@ -197,19 +197,19 @@
 		mon.updateTotalTx(hostapd.tx_bytes);
 	}
 
+	var __first_time = true;
 	function startMonitorRate() {
 		var url = '<%=url('admin/network/wireless_rate', table.concat(netlist, ","))%>';
 		var evtSrc = new EventSource(url);
 		__sse_pool.push(evtSrc);
-		var is_first_time = true;
 		evtSrc.onmessage = function(event) {
 			var assoctable = document.getElementById('iw-assoclist-chart');
 			if (!assoctable) return;
 
 			var data = JSON.parse(event.data);
-			while (is_first_time && assoctable.rows.length > 1)
+			while (__first_time && assoctable.rows.length > 1)
                         	assoctable.rows[1].parentNode.removeChild(assoctable.rows[1]);
-			is_first_time = false;
+			__first_time = false;
 			setTimeout(() => { updateAssocStations(null, data); }, 0); // Async
 
 			var cur_bssids = [];
