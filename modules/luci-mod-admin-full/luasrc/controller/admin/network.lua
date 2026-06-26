@@ -385,6 +385,8 @@ function wifi_rate(devs)
         	        rv[#rv+1] = s.wifi_network(dev)
         	end
 
+		nixio.nanosleep(0, 500 * 1000 * 1000)
+
         	if #rv > 0 then
 			for _, iw in ipairs(rv) do
 		                for mac, mac_info in pairs(iw.assoclist) do
