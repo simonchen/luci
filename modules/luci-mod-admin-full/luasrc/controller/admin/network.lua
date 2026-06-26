@@ -366,6 +366,9 @@ function wifi_rate(devs)
         local rv   = { }
 
         local dev
+	local success
+	local jsonc = require "luci.jsonc"
+	local json_str
 
 	luci.http.write("\n")
 	io.flush()
@@ -407,12 +410,19 @@ function wifi_rate(devs)
 
 			end
 			last_time = current_time
-		
+				
                 	luci.http.prepare_content("application/json")
+			success = pcall(function()
 			io.write("data: ")
-                	luci.http.write_json(rv)
+                	-- luci.http.write_json(rv)
+			json_str = jsonc.stringify(rv) or "{}"
+			io.write(json_str)
 			io.write("\n\n")
                 	io.flush()
+			end)
+			if not success then
+				break
+			end
         	else
         		luci.http.status(404, "No such device")
 			break
