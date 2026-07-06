@@ -89,7 +89,7 @@
                 	bingApiUrl             = "https://fd.api.iris.microsoft.com/v4/api/selection?&placement=88000820&bcnt=4&country=HK&locale=zh-CN&fmt=json"
         	end
 
-		local bing = sys.exec("curl --connect-timeout 5 -A 'WindowsShellClient/10.0.19044.1503 (arch/x64; hpx/444; locale/zh-CN)' -H 'Cookie: _EDGE_S=mkt=zh-cn; _SS=SID=0&HV=0' '%s'" %bingApiUrl)
+		local bing = sys.exec("curl --connect-timeout 5 -A 'WindowsShellClient/10.0.19044.1503 (arch/x64; hpx/444; locale/zh-CN)' -H 'Cookie: _EDGE_S=mkt=zh-cn; _SS=SID=0&HV=0' '%s' 2>/dev/null" %bingApiUrl)
 		
 		if (bing and bing ~= '') then
 			if not use_spotlight then 
