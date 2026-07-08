@@ -369,9 +369,19 @@ function wifi_rate(devs)
 	local success
 	local jsonc = require "luci.jsonc"
 	local json_str
+	local start_time = os.time()
 
-	luci.http.write("\n")
+	-- luci.http.write("\n")
+	luci.http.write("retry: 1000\n\n")
 	io.flush()
+
+	local stdout_userdata = nixio.stdout
+	if stdout_userdata then
+		local stdout_file = nixio.dup(stdout_userdata)
+		if stdout_file then
+			stdout_file:setblocking(false)
+		end
+	end
 
 	while true do
 		local sec, usec = nixio.gettimeofday()
@@ -411,8 +421,8 @@ function wifi_rate(devs)
 				end
 
 			end
-			last_time = current_time
-				
+			
+			if last_time ~= nil then	
                 	luci.http.prepare_content("application/json")
 			success = pcall(function()
 			io.write("data: ")
@@ -425,12 +435,23 @@ function wifi_rate(devs)
 			if not success then
 				break
 			end
+			end
+
+			last_time = current_time
         	else
         		luci.http.status(404, "No such device")
 			break
 		end
+
+		if (os.time() - start_time) >= 30 then
+			break
+		end
 		
 		nixio.nanosleep(1, max_ms * 1000 * 1000)
+
+		if luci.http.getenv("HTTP_CONNECTION") == "close" then
+			break
+		end
 	end
 end
 
