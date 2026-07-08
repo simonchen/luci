@@ -468,6 +468,32 @@ end
 
 wifi = {}
 
+function wifi.get_client_stats(ifname)
+    local utl = require "luci.util"
+    local res = {}
+    
+    local output = utl.exec("iw dev " .. ifname .. " station dump")
+    if not output or output == "" then return res end
+    
+    local cur_mac = nil
+    for line in output:gmatch("[^\r\n]+") do
+        local mac = line:match("^Station%s+(%x%x:%x%x:%x%x:%x%x:%x%x:%x%x)")
+        if mac then
+            cur_mac = mac:lower()
+            res[cur_mac] = { rx_bytes = 0, tx_bytes = 0, connected_sec = 0 }
+        elseif cur_mac then
+            local rx = line:match("rx bytes:%s+(%d+)")
+            local tx = line:match("tx bytes:%s+(%d+)")
+            local sec = line:match("connected time:%s+(%d+)")
+            
+            if rx then res[cur_mac].rx_bytes = tonumber(rx) end
+            if tx then res[cur_mac].tx_bytes = tonumber(tx) end
+            if sec then res[cur_mac].connected_sec = tonumber(sec) end
+        end
+    end
+    return res
+end
+
 function wifi.getiwinfo(ifname)
 	local stat, iwinfo = pcall(require, "iwinfo")
 
@@ -503,14 +529,28 @@ function wifi.getiwinfo(ifname)
 					return ifname
 				elseif k == "assoclist" then
 					local assoclist = x[k] and x[k](ifname) or {}
-					hostapd_status = ctx:call("hostapd." .. ifname, "get_clients", {})
-					if hostapd_status and hostapd_status.clients then
+					-- hostapd_status = ctx:call("hostapd." .. ifname, "get_clients", {})
+					local cmd = "ubus -t 2 call hostapd." .. ifname .. " get_clients '{}'"
+					local utl = require "luci.util"
+					local json = require "luci.jsonc"
+					-- local output = utl.exec(cmd)
+					-- local hostapd_status
+					-- if output and output ~= "" then
+					--	hostapd_status = json.parse(output)
+					-- end
+					local hostapd_status = wifi.get_client_stats(ifname)
+					
+					-- if hostapd_status and hostapd_status.clients then
+					if hostapd_status then
 					  for mac, mac_info in pairs(assoclist) do
-				    		local h_client = hostapd_status.clients[mac:lower()]
+				    		-- local h_client = hostapd_status.clients[mac:lower()]
+						local h_client = hostapd_status[mac:lower()]
 				    		if h_client then
 							mac_info.hostapd = {
-								rx_bytes = h_client.bytes.rx,
-								tx_bytes = h_client.bytes.tx,
+								-- rx_bytes = h_client.bytes.rx,
+								-- tx_bytes = h_client.bytes.tx,
+								rx_bytes = h_client.rx_bytes,
+								tx_bytes = h_client.tx_bytes,
 								connected_sec = h_client.connected_sec
 							}
 						else
@@ -518,6 +558,8 @@ function wifi.getiwinfo(ifname)
 						end
 					  end
 					end
+					
+					nixio.nanosleep(0, 100*1000*1000)
 					return assoclist
 				elseif x[k] then
 					return x[k](ifname)
