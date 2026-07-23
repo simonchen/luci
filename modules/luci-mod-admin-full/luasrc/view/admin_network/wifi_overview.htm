@@ -183,18 +183,18 @@
 		__wifirate_charts[bssid] = mon;
 	}
 
-	function update_wifirate_chart(bssid, hostapd) {
+	function update_wifirate_chart(bssid, mac_info) {
 		var tr = document.getElementById(bssid);
 		if (!tr) return;
 
 		if (!(bssid in __wifirate_charts)) return;
-		if (!hostapd) return;
+		if (!mac_info) return;
 
 		var mon = __wifirate_charts[bssid];
-		mon.pushRx(hostapd.rx_rate);
-		mon.pushTx(hostapd.tx_rate);
-		mon.updateTotalRx(hostapd.rx_bytes);
-		mon.updateTotalTx(hostapd.tx_bytes);
+		mon.pushRx(mac_info.rx_rate);
+		mon.pushTx(mac_info.tx_rate);
+		mon.updateTotalRx(mac_info.rx_bytes);
+		mon.updateTotalTx(mac_info.tx_bytes);
 	}
 
 	var __first_time = true;
@@ -253,16 +253,16 @@
                                                         	? '%h (%s)'.format(host.name, host.ipv4 || host.ipv6)
                                                                 : '%h'.format(host.name || host.ipv4 || host.ipv6)).nobr()
                                                 );
-						if (assoclist[j].hostapd) {
-							cells[4].innerHTML += '<br> &#128994; %s'.format(formatTime(assoclist[j].hostapd.connected_sec));
+						if (assoclist[j]) {
+							cells[4].innerHTML += '<br> &#128994; %s'.format(formatTime(assoclist[j].connected_time));
 						}
 					}
                                         else
                                                 cells[4].innerHTML = '?';
 
-					if (!(bssid in __wifirate_charts) && assoclist[j].hostapd)
+					if (!(bssid in __wifirate_charts) && assoclist[j])
 						create_wifirate_chart(bssid, cells[0]);
-					update_wifirate_chart(assoclist[j].bssid, assoclist[j].hostapd);
+					update_wifirate_chart(assoclist[j].bssid, assoclist[j]);
 				}
 
 			}
@@ -309,8 +309,8 @@
 
 	function show_speed(bss) {
 		var s = "";
-		if (bss.hostapd && bss.hostapd.rx_bytes && bss.hostapd.tx_bytes) {
-			var rate = calculateSpeed(bss.bssid, bss.hostapd.rx_bytes, bss.hostapd.tx_bytes);	
+		if (bss && bss.rx_bytes && bss.tx_bytes) {
+			var rate = calculateSpeed(bss.bssid, bss.rx_bytes, bss.tx_bytes);	
 			s += '<br><span style="color:#00a500;">RX: ' + formatTotal(rate.rx_speed) + ' | TX: ' + formatTotal(rate.tx_speed) + '</span>';
 		}
 
@@ -518,8 +518,8 @@
 										? '%h (%s)'.format(host.name, host.ipv4 || host.ipv6)
 										: '%h'.format(host.name || host.ipv4 || host.ipv6)).nobr()
 								);
-								if (assoclist[j].hostapd) {
-                                                        		trHost.innerHTML += '<br> &#128994; %s'.format(formatTime(assoclist[j].hostapd.connected_sec));
+								if (assoclist[j]) {
+                                                        		trHost.innerHTML += '<br> &#128994; %s'.format(formatTime(assoclist[j].connected_time));
                                                 		}
 							}
 							else

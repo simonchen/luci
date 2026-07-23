@@ -402,21 +402,21 @@ function wifi_rate(devs)
 		                for mac, mac_info in pairs(iw.assoclist) do
 					local rx_rate = 0
 					local tx_rate = 0
-                    			if mac_info.hostapd then
+                    			if mac_info then
 						if last_time ~= nil and 
 							mac_last_rx[mac] ~= nil and mac_last_tx[mac] ~= nil and
-							mac_info.hostapd.rx_bytes ~= nil and mac_info.hostapd.tx_bytes ~= nil then
+							mac_info.rx_bytes ~= nil and mac_info.tx_bytes ~= nil then
 							time_delta = current_time - last_time
-							rx_rate = math.max(0, -(mac_last_rx[mac]["rx_bytes"] - mac_info.hostapd["rx_bytes"]) / time_delta)
-							tx_rate = math.max(0, -(mac_last_tx[mac]["tx_bytes"] - mac_info.hostapd["tx_bytes"]) / time_delta)
+							rx_rate = math.max(0, -(mac_last_rx[mac]["rx_bytes"] - mac_info["rx_bytes"]) / time_delta)
+							tx_rate = math.max(0, -(mac_last_tx[mac]["tx_bytes"] - mac_info["tx_bytes"]) / time_delta)
 						end
-						mac_info.hostapd["rx_rate"] = rx_rate
-						mac_info.hostapd["tx_rate"] = tx_rate
+						mac_info["rx_rate"] = rx_rate
+						mac_info["tx_rate"] = tx_rate
 			
 						mac_last_rx[mac] = {}			
-						mac_last_rx[mac]["rx_bytes"] = mac_info.hostapd["rx_bytes"]
+						mac_last_rx[mac]["rx_bytes"] = mac_info["rx_bytes"]
 						mac_last_tx[mac] = {}
-						mac_last_tx[mac]["tx_bytes"] = mac_info.hostapd["tx_bytes"]
+						mac_last_tx[mac]["tx_bytes"] = mac_info["tx_bytes"]
 					end
 				end
 

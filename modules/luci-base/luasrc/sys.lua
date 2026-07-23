@@ -527,40 +527,6 @@ function wifi.getiwinfo(ifname)
 			__index = function(t, k)
 				if k == "ifname" then
 					return ifname
-				elseif k == "assoclist" then
-					local assoclist = x[k] and x[k](ifname) or {}
-					-- hostapd_status = ctx:call("hostapd." .. ifname, "get_clients", {})
-					local cmd = "ubus -t 2 call hostapd." .. ifname .. " get_clients '{}'"
-					local utl = require "luci.util"
-					local json = require "luci.jsonc"
-					-- local output = utl.exec(cmd)
-					-- local hostapd_status
-					-- if output and output ~= "" then
-					--	hostapd_status = json.parse(output)
-					-- end
-					local hostapd_status = wifi.get_client_stats(ifname)
-					
-					-- if hostapd_status and hostapd_status.clients then
-					if hostapd_status then
-					  for mac, mac_info in pairs(assoclist) do
-				    		-- local h_client = hostapd_status.clients[mac:lower()]
-						local h_client = hostapd_status[mac:lower()]
-				    		if h_client then
-							mac_info.hostapd = {
-								-- rx_bytes = h_client.bytes.rx,
-								-- tx_bytes = h_client.bytes.tx,
-								rx_bytes = h_client.rx_bytes,
-								tx_bytes = h_client.tx_bytes,
-								connected_sec = h_client.connected_sec
-							}
-						else
-							mac_info.hostapd = { rx_bytes = 0, tx_bytes = 0 }
-						end
-					  end
-					end
-					
-					nixio.nanosleep(0, 100*1000*1000)
-					return assoclist
 				elseif x[k] then
 					return x[k](ifname)
 				end
