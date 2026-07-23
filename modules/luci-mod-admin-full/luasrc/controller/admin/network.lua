@@ -410,8 +410,8 @@ function wifi_rate(devs)
 							rx_rate = math.max(0, -(mac_last_rx[mac]["rx_bytes"] - mac_info["rx_bytes"]) / time_delta)
 							tx_rate = math.max(0, -(mac_last_tx[mac]["tx_bytes"] - mac_info["tx_bytes"]) / time_delta)
 						end
-						mac_info["rx_rate"] = rx_rate
-						mac_info["tx_rate"] = tx_rate
+						mac_info["_rx_rate"] = rx_rate
+						mac_info["_tx_rate"] = tx_rate
 			
 						mac_last_rx[mac] = {}			
 						mac_last_rx[mac]["rx_bytes"] = mac_info["rx_bytes"]

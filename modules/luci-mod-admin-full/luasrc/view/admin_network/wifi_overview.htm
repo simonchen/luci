@@ -191,8 +191,8 @@
 		if (!mac_info) return;
 
 		var mon = __wifirate_charts[bssid];
-		mon.pushRx(mac_info.rx_rate);
-		mon.pushTx(mac_info.tx_rate);
+		mon.pushRx(mac_info._rx_rate);
+		mon.pushTx(mac_info._tx_rate);
 		mon.updateTotalRx(mac_info.rx_bytes);
 		mon.updateTotalTx(mac_info.tx_bytes);
 	}
