@@ -447,7 +447,7 @@ function wifi_rate(devs)
 			break
 		end
 		
-		nixio.nanosleep(1, max_ms * 1000 * 1000)
+		nixio.nanosleep(3, max_ms * 1000 * 1000)
 
 		if luci.http.getenv("HTTP_CONNECTION") == "close" then
 			break
