@@ -397,7 +397,8 @@ function wifi_rate(devs)
 				local dev = net:get_device()
 				if dev then
         	        		rv[#rv+1] = {
-						ifname = net:ifname(), 
+						ifname = net:ifname(),
+						ssid = net:active_ssid(), 
 						assoclist = net:assoclist(),
 						device = {
 							up     = dev:is_up(),
