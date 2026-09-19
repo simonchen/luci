@@ -210,7 +210,7 @@
 			while (__first_time && assoctable.rows.length > 1)
                         	assoctable.rows[1].parentNode.removeChild(assoctable.rows[1]);
 			__first_time = false;
-			setTimeout(() => { updateAssocStations(null, data); }, 0); // Async
+			//setTimeout(() => { updateAssocStations(null, data); }, 0); // Async
 
 			var cur_bssids = [];
 			for( var i = 0; i < data.length; i++ ) {
@@ -370,7 +370,7 @@
 
 	var hosts = <%=luci.http.write_json(luci.sys.net.host_hints())%>;
 
-	//XHR.poll(5, '<%=url('admin/network/wireless_status', table.concat(netlist, ","))%>', null,
+	XHR.poll(5, '<%=url('admin/network/wireless_status', table.concat(netlist, ","))%>', null,
 		function updateAssocStations(x, st)
 		{
 			if (st)
@@ -557,7 +557,7 @@
 				}
 			}
 		}
-	//);
+	);
 //]]></script>
 
 <h2 name="content"><%:Wireless Overview%></h2>

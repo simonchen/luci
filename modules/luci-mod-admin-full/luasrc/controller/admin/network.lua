@@ -383,16 +383,30 @@ function wifi_rate(devs)
 		end
 	end
 
+	local ntm = require "luci.model.network".init()
 	while true do
 		local sec, usec = nixio.gettimeofday()
 		local current_time = sec + (usec / 1000000)
 
-		local s    = require "luci.tools.status"
 		local rv   = { }
 		local dev
 
 	        for dev in devs:gmatch("[%w%.%-]+") do
-        	        rv[#rv+1] = s.wifi_network(dev)
+			local net = ntm:get_wifinet(dev)
+			if net then
+				local dev = net:get_device()
+				if dev then
+        	        		rv[#rv+1] = {
+						ifname = net:ifname(), 
+						assoclist = net:assoclist(),
+						device = {
+							up     = dev:is_up(),
+							device = dev:name(),
+							name   = dev:get_i18n()
+						}
+					}
+				end
+			end
         	end
 
 		nixio.nanosleep(0, 500 * 1000 * 1000)
@@ -447,7 +461,7 @@ function wifi_rate(devs)
 			break
 		end
 		
-		nixio.nanosleep(3, max_ms * 1000 * 1000)
+		nixio.nanosleep(0, max_ms * 1000 * 1000)
 
 		if luci.http.getenv("HTTP_CONNECTION") == "close" then
 			break
