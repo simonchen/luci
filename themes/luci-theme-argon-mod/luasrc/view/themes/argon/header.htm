@@ -212,7 +212,13 @@
 		blur_opacity_dark = uci:get_first('argon', 'global', 'transparency_dark')
 		blur_opacity_green = uci:get_first('argon', 'global', 'transparency_green')
 		mode = uci:get_first('argon', 'global', 'mode')
-		bar_color = mode == 'dark' and dark_primary or primary
+		if mode == 'dark' then
+			bar_color = dark_primary
+		elseif mode == 'green' then
+			bar_color = green_primary
+		else
+			bar_color = primary
+		end
 		logo_url = uci:get_first('argon', 'global', 'logo_url')
 		custom_script = uci:get_first('argon', 'global', 'custom_script') or "/etc/config/argon_custom_script"
 		custom_script_content = fs.readfile(custom_script) or ""

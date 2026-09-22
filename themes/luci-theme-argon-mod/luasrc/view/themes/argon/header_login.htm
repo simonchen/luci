@@ -67,7 +67,13 @@
 		blur_opacity_dark = uci:get_first('argon', 'global', 'transparency_dark')
 		blur_opacity_green = uci:get_first('argon', 'global', 'transparency_green')
 		mode = uci:get_first('argon', 'global', 'mode')
-		bar_color = mode == 'dark' and dark_primary or primary
+                if mode == 'dark' then
+                        bar_color = dark_primary
+                elseif mode == 'green' then
+                        bar_color = green_primary
+                else
+                        bar_color = primary
+                end
 	end
 -%>
 
